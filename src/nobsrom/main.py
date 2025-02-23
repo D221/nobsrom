@@ -15,6 +15,18 @@ import pygame.joystick
 
 
 class Colors(Enum):
+    """
+    Enum class representing different color codes used in the application.
+
+    Attributes:
+        HEADER (int): Color code for header elements.
+        SELECTED (int): Color code for selected items.
+        FAVORITE (int): Color code for favorite items.
+        NORMAL (int): Color code for normal items.
+        HIGHLIGHT (int): Color code for highlighted items.
+        STATUS_BAR (int): Color code for the status bar.
+    """
+
     HEADER = 1
     SELECTED = 2
     FAVORITE = 3
@@ -24,70 +36,95 @@ class Colors(Enum):
 
 
 class EmulatorLauncher:
+    """
+    EmulatorLauncher is a class that manages the launching and navigation of ROMs for various emulators.
+    """
+
     def __init__(self):
-        """
-        Initializes the main application class.
-        Attributes:
-            app_name (str): The name of the application.
-            vendor_name (str): The name of the vendor.
-            config_dir (Path): The directory where the configuration files are stored.
-            config_file (Path): The path to the configuration file.
-            favorites_file (Path): The path to the favorites file.
-            config (dict): The loaded configuration data.
-            favorites (list): The loaded list of favorite ROMs.
-            roms (dict): The dictionary of available ROMs.
-            all_roms (list): The combined list of all ROMs.
-            selected_system (int): The index of the currently selected system.
-            selected_rom (int): The index of the currently selected ROM.
-            total_roms (int): The total number of ROMs.
-            current_rom_index (int): The index of the current ROM.
-            system_window (Any): The window displaying the systems.
-            rom_window (Any): The window displaying the ROMs.
-            emulator_process (Any): The process running the emulator.
-            focus (str): The current focus, either "systems" or "roms".
-            filter_string (str): The current filter string for ROMs.
-            filtered_roms (dict): The dictionary of filtered ROMs.
-            last_selection_change_time (float): The timestamp of the last selection change.
-            mode (str): The current mode of the application, e.g., "navigate".
-            view_mode (str): The current view mode, either "favorites" or "systems".
-            joystick (Any): The joystick input device.
-            first_axis_event (dict): The timestamp of the first axis event for each direction.
-            last_axis_event (dict): The timestamp of the last axis event for each direction.
-            first_hat_event (dict): The timestamp of the first hat event for each direction.
-            last_hat_event (dict): The timestamp of the last hat event for each direction.
-        """
         # config
         self.app_name = "nobsrom"
+        """The name of the application."""
+
         self.vendor_name = "D221"
+        """The vendor name associated with the application."""
+
         self.config_dir = user_config_path(
             self.app_name, self.vendor_name, ensure_exists=True
         )
+        """The directory path for storing user configuration files."""
+
         # Set default file paths if not specified
         self.config_file = self.config_dir / "config.yaml"
+        """The file path for the configuration file."""
+
         self.favorites_file = self.config_dir / "favorites.yaml"
+        """The file path for the favorites file."""
+
         self.config = self.load_config()
+        """The loaded configuration dictionary."""
+
         self.favorites = self.load_favorites()
+        """The loaded favorites dictionary."""
 
         self.roms = self.get_roms()
+        """A dictionary of ROMs categorized by system."""
+
         self.all_roms = self.combine_all_roms(self.roms)
+        """A list of all ROMs across all systems."""
+
         self.selected_system = 0
+        """The index of the currently selected system."""
+
         self.selected_rom = 0
+        """The index of the currently selected ROM."""
+
         self.total_roms = 0
+        """The total number of ROMs in the current view."""
+
         self.current_rom_index = 0
+        """The index of the currently selected ROM (1-based)."""
+
         self.system_window = None
+        """The window object for displaying systems."""
+
         self.rom_window = None
+        """The window object for displaying ROMs."""
+
         self.emulator_process = None
+        """The process object for the running emulator."""
+
         self.focus = "systems"
+        """The current focus of the application (either 'systems' or 'roms')."""
+
         self.filter_string = ""
+        """The string used to filter ROMs."""
+
         self.filtered_roms = {}
+        """A dictionary of filtered ROMs based on the filter string and view mode."""
+
         self.last_selection_change_time = 0
+        """The timestamp of the last selection change."""
+
         self.mode = "navigate"
+        """The current mode of the application (either 'navigate' or 'filter')."""
+
         self.view_mode = "favorites" if self.favorites else "systems"
+        """The current view mode (either 'favorites' or 'systems')."""
+
         self.joystick = None
+        """The joystick object for gamepad support."""
+
         self.first_axis_event = {"up": 0, "down": 0, "left": 0, "right": 0}
+        """The timestamp of the first axis event for each direction."""
+
         self.last_axis_event = {"up": 0, "down": 0, "left": 0, "right": 0}
+        """The timestamp of the last axis event for each direction."""
+
         self.first_hat_event = {"up": 0, "down": 0, "left": 0, "right": 0}
+        """The timestamp of the first hat event for each direction."""
+
         self.last_hat_event = {"up": 0, "down": 0, "left": 0, "right": 0}
+        """The timestamp of the last hat event for each direction."""
 
     def load_config(self):
         """
@@ -957,23 +994,12 @@ class EmulatorLauncher:
         """
         Main function to initialize and run the ROM launcher interface.
         Args:
-            stdscr: The curses window object.
+            stdscr: The standard screen object provided by curses.
         This function sets up the curses environment, initializes pygame for gamepad support,
-        and handles the main event loop for the ROM launcher. It processes keyboard and gamepad
-        inputs, updates the display, and manages the state of the application.
-        The function also handles window resizing, auto-repeat for gamepad D-pad and joystick
-        axes, and checks for the completion of the emulator process.
-        Attributes:
-            stdscr: The main curses window object.
-            joystick: The pygame joystick object, if a gamepad is connected.
-            system_window: The curses window for displaying system information.
-            rom_window: The curses window for displaying ROM information.
-            mode: The current mode of the application (e.g., "navigate").
-            first_hat_event: Dictionary to track the first event time for each D-pad direction.
-            last_hat_event: Dictionary to track the last event time for each D-pad direction.
-            first_axis_event: Dictionary to track the first event time for each joystick axis direction.
-            last_axis_event: Dictionary to track the last event time for each joystick axis direction.
-            emulator_process: The subprocess running the emulator, if any.
+        and enters the main loop to handle user input and update the display. It supports both
+        keyboard and gamepad inputs, with auto-repeat functionality for gamepad D-pad and joystick axes.
+        The interface is divided into two windows: one for system selection and one for ROM selection.
+        The function also handles window resizing and checks for the completion of the emulator process.
         """
         self.stdscr = stdscr
         stdscr.keypad(True)
@@ -1210,13 +1236,6 @@ class EmulatorLauncher:
 
 
 def main():
-    """
-    The main function that initializes the EmulatorLauncher and runs its main method
-    within a curses wrapper.
-
-    This function sets up the necessary environment for the emulator launcher
-    to run with a text-based user interface using the curses library.
-    """
     launcher = EmulatorLauncher()
     curses.wrapper(launcher.main)
 
