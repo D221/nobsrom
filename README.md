@@ -2,7 +2,7 @@
 
 ![Demo Screenshot](images/screenshot.png) *[Optional: Add actual screenshot later]*
 
-A terminal-based retro game launcher with full gamepad support, designed for easy navigation and management of your retro game collection.
+A terminal-based game rom launcher with full gamepad support, designed for easy navigation and launching of your rom collection.
 
 ## Features
 
