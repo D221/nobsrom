@@ -5,6 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "nobsrom"
 version = "0.0.1"
+dependencies = ["platformdirs", "pygame", "PyYAML"]
 authors = [{ name = "D221", email = "dailycast@proton.me" }]
 description = "Simple minimal curses based rom launcher"
 readme = "README.md"

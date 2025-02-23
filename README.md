@@ -23,11 +23,11 @@ A terminal-based game rom launcher with full gamepad support, designed for easy 
 git clone https://github.com/yourusername/nobsrom.git
 cd nobsrom
 
-# Install dependencies
-pip install -r requirements.txt
+# Install the project
+pip install .
 
 # Run the launcher
-python main.py
+nobsrom
 ```
 ## Configuration
 
