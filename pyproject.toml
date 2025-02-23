@@ -1,0 +1,24 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nobsrom"
+version = "0.0.1"
+authors = [{ name = "D221", email = "dailycast@proton.me" }]
+description = "Simple minimal curses based rom launcher"
+readme = "README.md"
+requires-python = ">=3.6"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+license = "GPL-3.0-or-later"
+license-files = ["LICEN[CS]E*"]
+
+[project.urls]
+Homepage = "https://github.com/D221/nobsrom"
+Issues = "https://github.com/D221/nobsrom/issues"
+
+[project.scripts]
+nobsrom = "nobsrom.main:main"

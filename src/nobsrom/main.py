@@ -883,6 +883,10 @@ class EmulatorLauncher:
             time.sleep(0.01)
 
 
-if __name__ == "__main__":
+def main():
     launcher = EmulatorLauncher()
     curses.wrapper(launcher.main)
+
+
+if __name__ == "__main__":
+    main()
