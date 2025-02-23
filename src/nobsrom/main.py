@@ -4,12 +4,14 @@ import subprocess
 import time
 from enum import Enum
 
+import yaml
+from platformdirs import user_config_path
+
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
 os.environ["SDL_AUDIODRIVER"] = "dummy"
 
 import pygame.event
 import pygame.joystick
-import yaml
 
 
 class Colors(Enum):
@@ -22,11 +24,19 @@ class Colors(Enum):
 
 
 class EmulatorLauncher:
-    def __init__(self, config_file="config.yaml", favorites_file="favorites.yaml"):
-        self.config_file = config_file
-        self.favorites_file = favorites_file
-        self.config = self.load_config(config_file)
+    def __init__(self):
+        # config
+        self.app_name = "nobsrom"
+        self.vendor_name = "D221"
+        self.config_dir = user_config_path(
+            self.app_name, self.vendor_name, ensure_exists=True
+        )
+        # Set default file paths if not specified
+        self.config_file = self.config_dir / "config.yaml"
+        self.favorites_file = self.config_dir / "favorites.yaml"
+        self.config = self.load_config()
         self.favorites = self.load_favorites()
+
         self.roms = self.get_roms()
         self.all_roms = self.combine_all_roms(self.roms)
         self.selected_system = 0
@@ -47,6 +57,55 @@ class EmulatorLauncher:
         self.last_axis_event = {"up": 0, "down": 0, "left": 0, "right": 0}
         self.first_hat_event = {"up": 0, "down": 0, "left": 0, "right": 0}
         self.last_hat_event = {"up": 0, "down": 0, "left": 0, "right": 0}
+
+    def load_config(self):
+        """Load config from platform-specific location"""
+        try:
+            if not self.config_file.exists():
+                self.create_default_config()
+
+            with open(self.config_file, "r") as f:
+                return yaml.safe_load(f) or {}
+        except Exception as e:
+            print(f"Error loading config: {e}")
+            return self.create_default_config()
+
+    def create_default_config(self):
+        """Create default configuration if none exists"""
+        default_config = {
+            "systems": {
+                "NES": {
+                    "emulator_path": "retroarch",
+                    "launch_arguments": "-L cores/fceumm_libretro.dll {rom_path}",
+                    "paths": ["~/ROMs/NES"],
+                }
+            }
+        }
+        self.save_config(default_config)
+        return default_config
+
+    def save_config(self, config=None):
+        """Save configuration to platform-specific location"""
+        config = config or self.config
+        with open(self.config_file, "w") as f:
+            yaml.dump(config, f, default_flow_style=False)
+
+    def load_favorites(self):
+        """Load favorites from platform-specific location"""
+        try:
+            if not self.favorites_file.exists():
+                return {}
+
+            with open(self.favorites_file, "r") as f:
+                return yaml.safe_load(f) or {}
+        except Exception as e:
+            print(f"Error loading favorites: {e}")
+            return {}
+
+    def save_favorites(self):
+        """Save favorites to platform-specific location"""
+        with open(self.favorites_file, "w") as f:
+            yaml.dump(self.favorites, f)
 
     def init_colors(self):
         """Initialize color pairs for the UI"""
@@ -88,32 +147,6 @@ class EmulatorLauncher:
         return sorted(
             all_roms, key=lambda x: os.path.basename(x[1]).lower()
         )  # Sort by ROM name
-
-    def load_config(self, config_file):
-        """Loads configuration from YAML file."""
-        with open(config_file, "r") as f:
-            try:
-                config = yaml.safe_load(f)
-                return config
-            except yaml.YAMLError as e:
-                print(f"Error loading config file: {e}")
-                exit()
-
-    def load_favorites(self):
-        """Loads favorite ROMs from the favorites file."""
-        try:
-            with open(self.favorites_file, "r") as f:
-                favorites = yaml.safe_load(f)
-                return (
-                    favorites or {}
-                )  # Return empty dict if file is empty or not found
-        except FileNotFoundError:
-            return {}
-
-    def save_favorites(self):
-        """Saves the favorite ROMs to the favorites file."""
-        with open(self.favorites_file, "w") as f:
-            yaml.dump(self.favorites, f)
 
     def get_roms(self):
         """Gets a list of ROMs from the configured paths."""
