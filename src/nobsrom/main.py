@@ -25,6 +25,37 @@ class Colors(Enum):
 
 class EmulatorLauncher:
     def __init__(self):
+        """
+        Initializes the main application class.
+        Attributes:
+            app_name (str): The name of the application.
+            vendor_name (str): The name of the vendor.
+            config_dir (Path): The directory where the configuration files are stored.
+            config_file (Path): The path to the configuration file.
+            favorites_file (Path): The path to the favorites file.
+            config (dict): The loaded configuration data.
+            favorites (list): The loaded list of favorite ROMs.
+            roms (dict): The dictionary of available ROMs.
+            all_roms (list): The combined list of all ROMs.
+            selected_system (int): The index of the currently selected system.
+            selected_rom (int): The index of the currently selected ROM.
+            total_roms (int): The total number of ROMs.
+            current_rom_index (int): The index of the current ROM.
+            system_window (Any): The window displaying the systems.
+            rom_window (Any): The window displaying the ROMs.
+            emulator_process (Any): The process running the emulator.
+            focus (str): The current focus, either "systems" or "roms".
+            filter_string (str): The current filter string for ROMs.
+            filtered_roms (dict): The dictionary of filtered ROMs.
+            last_selection_change_time (float): The timestamp of the last selection change.
+            mode (str): The current mode of the application, e.g., "navigate".
+            view_mode (str): The current view mode, either "favorites" or "systems".
+            joystick (Any): The joystick input device.
+            first_axis_event (dict): The timestamp of the first axis event for each direction.
+            last_axis_event (dict): The timestamp of the last axis event for each direction.
+            first_hat_event (dict): The timestamp of the first hat event for each direction.
+            last_hat_event (dict): The timestamp of the last hat event for each direction.
+        """
         # config
         self.app_name = "nobsrom"
         self.vendor_name = "D221"
@@ -59,7 +90,16 @@ class EmulatorLauncher:
         self.last_hat_event = {"up": 0, "down": 0, "left": 0, "right": 0}
 
     def load_config(self):
-        """Load config from platform-specific location"""
+        """
+        Load the configuration from a platform-specific location.
+        This method attempts to load the configuration from a file specified by
+        `self.config_file`. If the file does not exist, it creates a default
+        configuration file. If an error occurs during loading, it prints an error
+        message and returns the default configuration.
+        Returns:
+            dict: The loaded configuration as a dictionary. If the configuration
+            file does not exist or an error occurs, returns the default configuration.
+        """
         try:
             if not self.config_file.exists():
                 self.create_default_config()
@@ -71,7 +111,15 @@ class EmulatorLauncher:
             return self.create_default_config()
 
     def create_default_config(self):
-        """Create default configuration if none exists"""
+        """
+        Creates and saves a default configuration for the ROM launcher.
+
+        The default configuration includes settings for the NES system, specifying
+        the emulator path, launch arguments, and ROM paths.
+
+        Returns:
+            dict: The default configuration dictionary.
+        """
         default_config = {
             "systems": {
                 "NES": {
@@ -85,13 +133,32 @@ class EmulatorLauncher:
         return default_config
 
     def save_config(self, config=None):
-        """Save configuration to platform-specific location"""
+        """
+        Save the current configuration to a file.
+
+        Args:
+            config (dict, optional): The configuration dictionary to save.
+                                     If not provided, the current configuration
+                                     stored in self.config will be used.
+
+        Raises:
+            IOError: If there is an error writing to the file.
+        """
         config = config or self.config
         with open(self.config_file, "w") as f:
             yaml.dump(config, f, default_flow_style=False)
 
     def load_favorites(self):
-        """Load favorites from platform-specific location"""
+        """
+        Loads the favorites from a YAML file.
+        This method attempts to load the favorites from a specified YAML file.
+        If the file does not exist, it returns an empty dictionary. If there is
+        an error during the loading process, it catches the exception, prints
+        an error message, and returns an empty dictionary.
+        Returns:
+            dict: A dictionary containing the favorites loaded from the YAML file,
+                  or an empty dictionary if the file does not exist or an error occurs.
+        """
         try:
             if not self.favorites_file.exists():
                 return {}
@@ -103,12 +170,34 @@ class EmulatorLauncher:
             return {}
 
     def save_favorites(self):
-        """Save favorites to platform-specific location"""
+        """
+        Saves the current list of favorite ROMs to a file.
+
+        This method writes the contents of the `self.favorites` list to the file
+        specified by `self.favorites_file` in YAML format.
+
+        Raises:
+            IOError: If the file cannot be opened or written to.
+        """
         with open(self.favorites_file, "w") as f:
             yaml.dump(self.favorites, f)
 
     def init_colors(self):
-        """Initialize color pairs for the UI"""
+        """
+        Initialize color pairs for the UI using the curses library.
+        This method sets up the color pairs that will be used throughout the UI.
+        It starts by initializing the curses color system and using the default
+        terminal colors. Then, it defines several color pairs for different UI
+        elements such as headers, selected items, favorites, normal text,
+        highlighted text, and the status bar.
+        Color pairs defined:
+        - HEADER: White text on a blue background
+        - SELECTED: Black text on a white background
+        - FAVORITE: Yellow text on the default background
+        - NORMAL: White text on the default background
+        - HIGHLIGHT: Cyan text on the default background
+        - STATUS_BAR: Black text on a white background
+        """
         curses.start_color()
         curses.use_default_colors()
 
@@ -123,9 +212,15 @@ class EmulatorLauncher:
         )
 
     def draw_borders(self):
-        """Draw borders around windows"""
-        height, width = self.stdscr.getmaxyx()
-
+        """
+        Draws borders and headers for the system and ROM windows.
+        This method draws a box around the system window and adds a header
+        labeled "[ Systems ]" with a specific color. It also draws a box
+        around the ROM window and adds a header labeled "[ Games ]" with
+        the same color.
+        The colors used for the headers are defined by the Colors.HEADER
+        enumeration value.
+        """
         # Draw system window border
         self.system_window.box()
         self.system_window.addstr(
@@ -138,18 +233,21 @@ class EmulatorLauncher:
             0, 2, "[ Games ]", curses.color_pair(Colors.HEADER.value)
         )
 
-    def combine_all_roms(self, roms):
-        """Combines all ROMs from all systems into a list of (system, rom_path) tuples."""
-        all_roms = []
-        for system, system_roms in roms.items():
-            for rom in system_roms:
-                all_roms.append((system, rom))
-        return sorted(
-            all_roms, key=lambda x: os.path.basename(x[1]).lower()
-        )  # Sort by ROM name
-
     def get_roms(self):
-        """Gets a list of ROMs from the configured paths."""
+        """
+        Retrieves a list of ROMs from the configured paths for each system.
+
+        This method iterates through the systems defined in the configuration,
+        collects ROM file paths from the specified directories, and organizes
+        them by system.
+
+        Returns:
+            dict: A dictionary where the keys are system names and the values
+                  are lists of ROM file paths.
+
+        Raises:
+            Prints a warning message if a specified ROM path is invalid.
+        """
         roms = {}
         for system, config in self.config["systems"].items():
             roms[system] = []
@@ -166,8 +264,35 @@ class EmulatorLauncher:
                     print(f"Warning: Invalid ROM path for {system}: {path}")
         return roms
 
+    def combine_all_roms(self, roms):
+        """
+        Combines all ROMs from all systems into a list of (system, rom_path) tuples.
+
+        Args:
+            roms (dict): A dictionary where keys are system names and values are lists of ROM paths.
+
+        Returns:
+            list: A sorted list of tuples, where each tuple contains a system name and a ROM path.
+                  The list is sorted by the ROM name in a case-insensitive manner.
+        """
+        all_roms = []
+        for system, system_roms in roms.items():
+            for rom in system_roms:
+                all_roms.append((system, rom))
+        return sorted(
+            all_roms, key=lambda x: os.path.basename(x[1]).lower()
+        )  # Sort by ROM name
+
     def format_size(self, size):
-        """Formats a file size (in bytes) into a human-readable string."""
+        """
+        Formats a given size in bytes into a human-readable string with appropriate units.
+
+        Args:
+            size (float): The size in bytes to be formatted.
+
+        Returns:
+            str: The formatted size string with units (B, KB, MB, GB, TB, or PB).
+        """
         for unit in ["B", "KB", "MB", "GB", "TB"]:
             if size < 1024:
                 if unit == "B":
@@ -178,7 +303,31 @@ class EmulatorLauncher:
         return f"{size:.1f}PB"
 
     def draw_system_window(self):
-        """Draws the system selection window with enhanced visuals"""
+        """
+        Draws the system selection window with enhanced visuals.
+        This method clears the current system window and redraws it with updated
+        information, including the number of favorite ROMs, all ROMs, and ROMs
+        categorized by system. It highlights the currently selected view mode
+        and system, if applicable.
+        The window includes:
+        - A favorites section with a count of favorite ROMs.
+        - An "All" section with a count of all available ROMs.
+        - A separator line for visual clarity.
+        - A list of systems with their respective ROM counts.
+        The visual elements are styled using curses color pairs to indicate
+        selection and different categories.
+        Attributes:
+            self.system_window (curses.window): The window object where the system
+                selection is drawn.
+            self.view_mode (str): The current view mode, which can be "favorites",
+                "all", or "systems".
+            self.favorites (dict): A dictionary containing favorite ROMs categorized
+                by system.
+            self.all_roms (list): A list of all available ROMs.
+            self.roms (dict): A dictionary containing ROMs categorized by system.
+            self.selected_system (int): The index of the currently selected system
+                in the systems list.
+        """
         self.system_window.clear()
         self.draw_borders()
         y, x = 1, 2  # Start below the border
@@ -230,7 +379,28 @@ class EmulatorLauncher:
         self.system_window.refresh()
 
     def draw_rom_window(self):
-        """Draws the ROM selection window with enhanced visuals"""
+        """
+        Draws the ROM selection window with borders, ROM entries, and additional information.
+        This method clears the current ROM window, draws borders, and populates the window
+        with a list of ROMs based on the current view mode (systems, all, or favorites).
+        It handles scrolling, selection highlighting, and displays ROM names along with their
+        sizes. If a ROM is marked as a favorite, it adds a star icon next to its name.
+        The method also manages scrolling for long ROM names when they are selected and ensures
+        that the display is updated accordingly.
+        Attributes:
+            self.rom_window (curses.window): The window object where ROMs are displayed.
+            self.view_mode (str): The current view mode ("systems", "all", or "favorites").
+            self.roms (dict): Dictionary containing ROMs categorized by systems.
+            self.filtered_roms (dict): Dictionary containing filtered ROMs based on the view mode.
+            self.selected_system (int): Index of the currently selected system.
+            self.selected_rom (int): Index of the currently selected ROM.
+            self.total_roms (int): Total number of ROMs in the current view.
+            self.current_rom_index (int): Index of the currently selected ROM (1-based).
+            self.focus (str): The current focus of the application ("roms" or other).
+            self.last_selection_change_time (float): Timestamp of the last selection change.
+        Raises:
+            Exception: If there is an error retrieving the file size of a ROM.
+        """
         self.rom_window.clear()
         self.draw_borders()
 
@@ -323,7 +493,17 @@ class EmulatorLauncher:
         self.rom_window.refresh()
 
     def launch_rom(self, emulator_path, launch_arguments, rom_path, start_in_directory):
-        """Launches the emulator with the chosen ROM."""
+        """
+        Launches a ROM using the specified emulator and arguments.
+        Args:
+            emulator_path (str): The file path to the emulator executable.
+            launch_arguments (str): The arguments to pass to the emulator. Use "{rom_path}" as a placeholder for the ROM path.
+            rom_path (str): The file path to the ROM to be launched.
+            start_in_directory (str): The directory to set as the working directory when launching the emulator.
+        Raises:
+            subprocess.CalledProcessError: If there is an error launching the emulator.
+            FileNotFoundError: If the emulator executable is not found at the specified path.
+        """
         command = [emulator_path]
         if launch_arguments:
             args = launch_arguments.split()
@@ -343,7 +523,24 @@ class EmulatorLauncher:
             print(f"Emulator not found at: {emulator_path}")
 
     def update_filtered_roms(self):
-        """Updates the list of filtered ROMs based on the filter string and view mode."""
+        """
+        Updates the list of filtered ROMs based on the filter string and view mode.
+        This method filters the ROMs according to the current filter string and view mode.
+        The view modes can be "systems", "all", or "favorites". Depending on the view mode,
+        the filtered ROMs are updated as follows:
+        - "systems": Filters ROMs within each system based on the filter string.
+        - "all": Filters all ROMs across all systems based on the filter string.
+        - "favorites": Filters favorite ROMs based on the filter string.
+        If the filter string is empty, the filtered ROMs list is set to the full list of ROMs
+        for the current view mode.
+        Attributes:
+            filter_string (str): The string used to filter ROMs.
+            view_mode (str): The current view mode ("systems", "all", or "favorites").
+            roms (dict): A dictionary of ROMs categorized by system.
+            all_roms (list): A list of all ROMs across all systems.
+            filtered_roms (dict): A dictionary of filtered ROMs based on the filter string and view mode.
+            get_favorite_roms_with_system (function): A function that returns favorite ROMs with their systems.
+        """
         if not self.filter_string:
             if self.view_mode == "systems":
                 self.filtered_roms = self.roms
@@ -377,7 +574,17 @@ class EmulatorLauncher:
             ]
 
     def get_favorite_roms_with_system(self):
-        """Returns a list of favorite ROMs with their system names."""
+        """
+        Returns a list of favorite ROMs with their system names.
+
+        This method iterates through the 'favorites' dictionary, which contains
+        system names as keys and lists of favorite ROMs as values. It creates a
+        list of tuples, where each tuple contains a system name and a ROM name.
+
+        Returns:
+            list of tuple: A list of tuples, where each tuple contains a system
+            name (str) and a ROM name (str).
+        """
         favorite_roms = []
         for system, roms in self.favorites.items():
             for rom in roms:
@@ -385,7 +592,27 @@ class EmulatorLauncher:
         return favorite_roms
 
     def toggle_favorite(self):
-        """Toggles the favorite status of the currently selected ROM."""
+        """
+        Toggles the favorite status of the currently selected ROM.
+        Depending on the current view mode, this method will:
+        - In "systems" view mode: Toggle the favorite status of the selected ROM within the selected system.
+        - In "all" view mode: Toggle the favorite status of the selected ROM from the complete list of ROMs.
+        - In "favorites" view mode: Toggle the favorite status of the selected ROM from the list of favorite ROMs.
+        After toggling the favorite status, the method updates the filtered ROMs list and redraws the ROM window.
+        It also ensures that the ROM selection position is restored and within bounds.
+        Attributes:
+            self.selected_rom (int): The index of the currently selected ROM.
+            self.view_mode (str): The current view mode ("systems", "all", or "favorites").
+            self.roms (dict): A dictionary containing ROMs categorized by systems.
+            self.filtered_roms (dict): A dictionary containing filtered ROMs based on the current view mode.
+            self.favorites (dict): A dictionary containing favorite ROMs categorized by systems.
+            self.selected_system (int): The index of the currently selected system.
+        Methods:
+            self.save_favorites(): Saves the current state of favorite ROMs.
+            self.toggle_favorite_by_system_and_path(system, rom_path): Toggles the favorite status of a ROM by system and path.
+            self.update_filtered_roms(): Updates the list of filtered ROMs based on the current view mode.
+            self.draw_rom_window(): Redraws the ROM window to reflect the current state.
+        """
         current_rom_index = self.selected_rom  # Store the current ROM index
 
         if self.view_mode == "systems":
@@ -437,7 +664,16 @@ class EmulatorLauncher:
         self.selected_rom = max(self.selected_rom, 0)  # Ensure it's not negative
 
     def toggle_favorite_by_system_and_path(self, system, rom_path):
-        """Helper function to toggle favorite status using system and path."""
+        """
+        Toggles the favorite status of a ROM by its system and path.
+        If the ROM is already a favorite, it will be removed from the favorites list.
+        If the ROM is not a favorite, it will be added to the favorites list.
+        Args:
+            system (str): The system to which the ROM belongs.
+            rom_path (str): The file path of the ROM.
+        Returns:
+            None
+        """
         if system not in self.favorites:
             self.favorites[system] = []
 
@@ -453,14 +689,46 @@ class EmulatorLauncher:
         self.draw_rom_window()
 
     def is_favorite(self, rom_path):
-        """Checks if a ROM is in the favorites."""
+        """
+        Check if a ROM is marked as a favorite.
+
+        Args:
+            rom_path (str): The file path of the ROM to check.
+
+        Returns:
+            bool: True if the ROM is a favorite, False otherwise.
+        """
         for system, favorites in self.favorites.items():
             if rom_path in favorites:
                 return True
         return False
 
     def handle_input(self, key):
-        """Handles user input."""
+        """
+        Handles user input for navigating and filtering ROMs.
+        Parameters:
+        key (int): The key code of the pressed key.
+        Behavior:
+        - In "filter" mode:
+            - Escape key (27): Switch to "navigate" mode, clear filter string, update filtered ROMs, and reset selected ROM.
+            - Enter key (10): Launch the selected ROM.
+            - Backspace key (curses.KEY_BACKSPACE, 127, 8): Remove the last character from the filter string, update filtered ROMs, and reset selected ROM.
+            - Up key (curses.KEY_UP): Move the selection up in the filtered ROM list.
+            - Down key (curses.KEY_DOWN): Move the selection down in the filtered ROM list.
+            - F2 key (curses.KEY_F2): Toggle favorite status of the selected ROM if focus is on ROMs.
+            - Printable characters (32-126): Append the character to the filter string, update filtered ROMs, and reset selected ROM.
+        - In "navigate" mode:
+            - Up key (curses.KEY_UP): Navigate through ROMs or switch view modes and systems.
+            - Down key (curses.KEY_DOWN): Navigate through ROMs or switch view modes and systems.
+            - Left key (curses.KEY_LEFT): Set focus to systems.
+            - Right key (curses.KEY_RIGHT): Set focus to ROMs.
+            - Slash key (ord("/")): Switch to "filter" mode, clear filter string, update filtered ROMs, and reset selected ROM.
+            - Enter key (10): Launch the selected ROM.
+            - F2 key (curses.KEY_F2): Toggle favorite status of the selected ROM if focus is on ROMs.
+        Updates:
+        - Updates the timestamp if any selection state changes.
+        - Redraws the ROM window, system window, and filter bar.
+        """
         prev_selected_rom = self.selected_rom
         prev_view_mode = self.view_mode
         prev_selected_system = self.selected_system
@@ -581,7 +849,27 @@ class EmulatorLauncher:
         self.draw_filter_bar()
 
     def launch_selected_rom(self, systems, rom_list):
-        """Launches the selected ROM if possible."""
+        """
+        Launches the selected ROM using the appropriate emulator configuration.
+        Args:
+            systems (list): A list of available systems.
+            rom_list (list): A list of ROMs available for the selected system.
+        Preconditions:
+            - `self.focus` must be "roms".
+            - `self.emulator_process` must be None.
+            - `rom_list` must not be empty.
+        Behavior:
+            - If `self.view_mode` is "systems":
+                - Retrieves the system configuration for the selected system.
+                - Launches the ROM using the emulator path and launch arguments from the system configuration.
+            - If `self.view_mode` is "favorites" or "all":
+                - Retrieves the system and ROM path for the selected ROM.
+                - Launches the ROM using the emulator path and launch arguments from the system configuration.
+        Postconditions:
+            - Clears the filter string.
+            - Updates the filtered ROMs list.
+            - Resets the selected ROM index to 0.
+        """
         if self.focus == "roms" and self.emulator_process is None and rom_list:
             if self.view_mode == "systems":
                 system_config = self.config["systems"].get(
@@ -614,7 +902,26 @@ class EmulatorLauncher:
             self.selected_rom = 0
 
     def draw_filter_bar(self):
-        """Draws an enhanced filter/status bar"""
+        """
+        Draws the filter bar at the bottom of the terminal window.
+        This method clears the current status bar, sets the appropriate style,
+        and displays the current status based on the mode (filter or ready).
+        It also ensures that the status bar text fits within the window width.
+        The status bar displays different information based on the mode:
+        - In "filter" mode, it shows the filter string and the current ROM count.
+        - In "ready" mode, it shows a ready message and the current ROM count.
+        The status bar also includes help text with key bindings for various actions.
+        Attributes:
+            height (int): The height of the terminal window.
+            width (int): The width of the terminal window.
+            current_rom (int): The index of the current ROM.
+            counter (str): The string representing the current ROM count.
+            status (str): The status message to be displayed.
+            help_text (str): The help text with key bindings.
+            total_length (int): The total length of the status and help text.
+            padding (int): The padding to ensure the text fits within the window width.
+            final_text (str): The final text to be displayed on the status bar.
+        """
         height, width = self.stdscr.getmaxyx()
 
         # Clear the status bar
@@ -647,8 +954,27 @@ class EmulatorLauncher:
         self.stdscr.refresh()
 
     def main(self, stdscr):
-        """Main function to run the launcher with keyboard and gamepad support,
-        including auto-repeat with an initial delay for both D-pad and joystick axes."""
+        """
+        Main function to initialize and run the ROM launcher interface.
+        Args:
+            stdscr: The curses window object.
+        This function sets up the curses environment, initializes pygame for gamepad support,
+        and handles the main event loop for the ROM launcher. It processes keyboard and gamepad
+        inputs, updates the display, and manages the state of the application.
+        The function also handles window resizing, auto-repeat for gamepad D-pad and joystick
+        axes, and checks for the completion of the emulator process.
+        Attributes:
+            stdscr: The main curses window object.
+            joystick: The pygame joystick object, if a gamepad is connected.
+            system_window: The curses window for displaying system information.
+            rom_window: The curses window for displaying ROM information.
+            mode: The current mode of the application (e.g., "navigate").
+            first_hat_event: Dictionary to track the first event time for each D-pad direction.
+            last_hat_event: Dictionary to track the last event time for each D-pad direction.
+            first_axis_event: Dictionary to track the first event time for each joystick axis direction.
+            last_axis_event: Dictionary to track the last event time for each joystick axis direction.
+            emulator_process: The subprocess running the emulator, if any.
+        """
         self.stdscr = stdscr
         stdscr.keypad(True)
         curses.curs_set(0)
@@ -884,6 +1210,13 @@ class EmulatorLauncher:
 
 
 def main():
+    """
+    The main function that initializes the EmulatorLauncher and runs its main method
+    within a curses wrapper.
+
+    This function sets up the necessary environment for the emulator launcher
+    to run with a text-based user interface using the curses library.
+    """
     launcher = EmulatorLauncher()
     curses.wrapper(launcher.main)
 
